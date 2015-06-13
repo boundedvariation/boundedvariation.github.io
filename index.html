@@ -1,0 +1,277 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="chrome=1">
+    <title>Boundedvariation.GitHub.io by boundedvariation</title>
+    <link rel="stylesheet" href="stylesheets/styles.css">
+    <link rel="stylesheet" href="stylesheets/github-dark.css">
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/1.7.1/jquery.min.js"></script>
+    <script src="javascripts/respond.js"></script>
+    <!--[if lt IE 9]>
+      <script src="//html5shiv.googlecode.com/svn/trunk/html5.js"></script>
+    <![endif]-->
+    <!--[if lt IE 8]>
+    <link rel="stylesheet" href="stylesheets/ie.css">
+    <![endif]-->
+    <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+
+  </head>
+  <body>
+      <div id="header">
+        <nav>
+          <li class="fork"><a href="https://github.com/boundedvariation">View On GitHub</a></li>
+        </nav>
+      </div><!-- end header -->
+
+    <div class="wrapper">
+
+      <section>
+        <div id="title">
+          <h1>Boundedvariation.GitHub.io</h1>
+          <p>Building a Quant Finance Monte Carlo Engine in Haskell - Part 1</p>
+          <hr>
+          <span class="credits left">Project maintained by <a href="https://github.com/boundedvariation">boundedvariation</a></span>
+          <span class="credits right">Hosted on GitHub Pages &mdash; Theme by <a href="https://twitter.com/michigangraham">mattgraham</a></span>
+        </div>
+
+        <h1>
+<a id="introduction" class="anchor" href="#introduction" aria-hidden="true"><span class="octicon octicon-link"></span></a>Introduction</h1>
+
+<p>My background is in quant finance, mostly writing C++, Python, and (shudder) Matlab. Over the last few months I've
+been learning Haskell, so as an excuse to learn some more Haskell, I decided to try to solve a fundamental
+quantitative finance problem in Haskell. Quant finance tends to love <a href="http://quantlib.org/index.shtml">tangled OOP</a>, so I figured a functional programming style might be a new twist on the problem.</p>
+
+<p>I was trying to think of a good problem to start with, and I came up with the idea of a simple (but powerful) Monte
+Carlo engine for Haskell. With that in mind, I started to think about architecture. I'm going to write this up in
+a few posts, but my rough plan is:</p>
+
+<ul>
+<li>Today's post: specification of contingent claims</li>
+<li>Implementation of the Monte Carlo engine and underlying models</li>
+<li>Odds and ends (implementation of simple yield curves, volatility surfaces, etc) and future plans</li>
+</ul>
+
+<h1>
+<a id="quick-sidebar-quant-finance-basics" class="anchor" href="#quick-sidebar-quant-finance-basics" aria-hidden="true"><span class="octicon octicon-link"></span></a>Quick Sidebar: Quant Finance Basics</h1>
+
+<p>If you know even a little bit about quant finance, you can skip this. For the rest of you, a few quick pointers:</p>
+
+<ol>
+<li><p>A contingent claim is just a payout of cash that is dependent on something happening. The simplest contingent
+claim is a binary option. A binary option pays a fixed amount of cash immediately if some underlying (usually a
+stock) is above or below a certain amount. For instance, a binary call on XYZ stock with a fixed payout of $10 and
+a "strike price" of $50 will pay $10 if XYZ is above $50 at the option's expiration.</p></li>
+<li><p>A Monte Carlo engine uses an underlying model to evolve values. Models specify a way of creating a growth rate
+and an idea of how the value will move (in some cases including a distribution). For instance, the most basic
+model (Black-Scholes), assumes that its values grow at a fixed interest rate and that they will follow a lognormal distribution. Models get very byzantine in some cases.</p></li>
+</ol>
+
+<h1>
+<a id="the-contingentclaim-type" class="anchor" href="#the-contingentclaim-type" aria-hidden="true"><span class="octicon octicon-link"></span></a>The ContingentClaim Type</h1>
+
+<p>The first thing any Monte Carlo engine needs is a way to specify your payoffs. The great Simon Peyton-Jones
+himself has worked on <a href="http://research.microsoft.com/en-us/um/people/simonpj/Papers/financial-%0Acontracts/contracts-icfp.htm">this very problem</a>. His solution is, of course, quite good, but it's actually too general for our
+purposes. There are many types of contracts that can be expressed in his system that cannot be easily priced in a
+Monte Carlo framework.</p>
+
+<p>With that in mind, let's think about what a contingent claim really is, specifically from the standpoint of what a
+Monte Carlo engine needs to know about it.  </p>
+
+<ol>
+<li> The MC engine needs to know what to look at. Is the option on Apple's stock or Microsoft's stock? Or maybe
+the ten-year treasury rate? For my purposes, I'll refer to the value being looked at as the "observable".</li>
+<li> The engine will need to know when to stop evolving and check the value of the observable.</li>
+<li> The engine will need to know how to combine the different observations to turn them into a cash flow.</li>
+</ol>
+
+<p>The second of these is pretty easy to represent. For this one, we'll just create a list of times when the model
+needs to stop and check an observable. Easy enough.</p>
+
+<p>Now for 1 and 3, let's make this a little simpler. What if every time we stop the model, we simply put a structure
+containing all of the observables into a Map, keyed off of a Time? Then we can finish specifying our contingent claim with a function with this type:</p>
+
+<div class="highlight highlight-haskell"><pre><span class="pl-c1">Map</span> <span class="pl-c1">Time</span> <span class="pl-c1">Observables</span> -&gt; <span class="pl-c1">CashFlow</span></pre></div>
+
+<p>Where a CashFlow is just:</p>
+
+<div class="highlight highlight-haskell"><pre><span class="pl-k">data</span> <span class="pl-c1">CashFlow</span> = <span class="pl-c1">CashFlow</span> { cfTime :: <span class="pl-c1">Time</span> , cfAmount :: <span class="pl-c1">Double</span> }</pre></div>
+
+<p>For now let's just imagine <code>Observables</code> is just a list of <code>Double</code>s. In practice we're doing something better
+than that (see the bottom of this post for some details), but let's keep it simple for now.</p>
+
+<p>After some iterations on the design, I came up with the following types to represent contingent claims.</p>
+
+<div class="highlight highlight-haskell"><pre><span class="pl-k">data</span> <span class="pl-c1">CCProcessor</span> = <span class="pl-c1">CCProcessor</span> { 
+    <span class="pl-en">monitorTime</span> <span class="pl-k">::</span> <span class="pl-k">Time</span> 
+  , payoutFunc  :: [<span class="pl-c1">Map</span> <span class="pl-c1">Time</span> <span class="pl-c1">Observables</span> -&gt; <span class="pl-c1">CashFlow</span>]
+}
+<span class="pl-k">newtype</span> <span class="pl-c1">ContingentClaim</span> = <span class="pl-c1">ContingentClaim</span> { unCC :: [<span class="pl-c1">CCProcessor</span>] }</pre></div>
+
+<p>If you can think about this from the standpoint of the Monte Carlo engine, the engine can tick through each element
+of the list. At each element it will evolve the simultation through until the given Time and put the Observables
+into a running Map. Once this is done it will run any payoutFunc that is available (or maybe multiple ones)
+and determine the cash flows that need to be processed.</p>
+
+<h1>
+<a id="monoid-to-the-rescue" class="anchor" href="#monoid-to-the-rescue" aria-hidden="true"><span class="octicon octicon-link"></span></a>Monoid to the Rescue</h1>
+
+<p>One nifty thing about this is that it's easy to put together a bunch of different contingent claims simply by
+interleaving them based on the Time field.</p>
+
+<div class="highlight highlight-haskell"><pre><span class="pl-c">-- | Combines two contingent claims into one. </span>
+<span class="pl-en">combine</span> <span class="pl-k">::</span> <span class="pl-k">ContingentClaim</span> <span class="pl-smi">a</span> <span class="pl-k">-&gt;</span> <span class="pl-k">ContingentClaim</span> <span class="pl-smi">a</span> <span class="pl-k">-&gt;</span> <span class="pl-k">ContingentClaim</span> <span class="pl-smi">a</span>
+combine (<span class="pl-c1">ContingentClaim</span> x) (<span class="pl-c1">ContingentClaim</span> y) = <span class="pl-c1">ContingentClaim</span> $ combine' x y
+  <span class="pl-k">where</span>
+    combine' (cc1:ccs1) (cc2:ccs2)
+      | monitorTime cc1 == monitorTime cc2 = <span class="pl-k">let</span>
+            <span class="pl-c1">CCProcessor</span> t mf  = cc1
+            <span class="pl-c1">CCProcessor</span> _ mf' = cc2 <span class="pl-k">in</span>
+          <span class="pl-c1">CCProcessor</span> t (mf++mf') : combine' ccs1 ccs2
+      | monitorTime cc1 &gt; monitorTime cc2 = cc2 : combine' (cc1:ccs1) ccs2
+      | <span class="pl-c1">otherwise</span> = cc1 : combine' ccs1 (cc2:ccs2)
+    combine' cs1 cs2 = cs1 ++ cs2</pre></div>
+
+<p>But wait a sec, this is neat:</p>
+
+<div class="highlight highlight-haskell"><pre><span class="pl-k">instance</span> <span class="pl-k">Monoid</span> <span class="pl-k">ContingentClaim</span> <span class="pl-k">where</span> 
+  mempty = <span class="pl-c1">ContingentClaim</span> <span class="pl-c1">[]</span> 
+  mappend = combine</pre></div>
+
+<p>So now I can very easily compose a bunch of different options together. That seems handy.</p>
+
+<h1>
+<a id="monads-enter-the-picture" class="anchor" href="#monads-enter-the-picture" aria-hidden="true"><span class="octicon octicon-link"></span></a>Monads Enter the Picture</h1>
+
+<p>Now let's think about what a few simple options would look like in this framework.  A binary call option with a payout of 50 with a strike of 100 on the 0th observable, paying out at time 1, would look like this:</p>
+
+<div class="highlight highlight-haskell"><pre>binCall = <span class="pl-c1">ContingentClaim</span> [<span class="pl-c1">1.0</span>, [\m -&gt; <span class="pl-k">if</span> m ! <span class="pl-c1">1.0</span> !! <span class="pl-c1">0</span> &gt; <span class="pl-c1">100</span> <span class="pl-k">then</span> <span class="pl-c1">50</span> <span class="pl-k">else</span> <span class="pl-c1">0</span><span class="pl-k">]]</span></pre></div>
+
+<p>Okay, that's a bit ugly. Now imagine if I want a payout that averages the observable's price over ten different
+times? Trust me, I've tried, it isn't pretty.</p>
+
+<p>So what we need is a way to build up a ContingentClaim in a nice composable way. Now the answer to every
+question in Haskell is "Make a monad!", and this is no different. So what I did was combined two monads, the
+Reader and Writer monad. The Reader monad (which is really just the function monad) allows me to build up my
+payout function in a pretty nice and composable way. Meanwhile the Writer monad keeps track of the times I'm
+checking the observable.</p>
+
+<div class="highlight highlight-haskell"><pre><span class="pl-k">type</span> <span class="pl-c1">CCBuilder</span> w r a = <span class="pl-c1">WriterT</span> w (<span class="pl-c1">Reader</span> r) a</pre></div>
+
+<p>We'll also need something to pull out our completed ContingentClaim out of the monad. The details of the
+implementation are beyond the scope of this (and tedious anyway), so just make note of the type:</p>
+
+<div class="highlight highlight-haskell"><pre><span class="pl-en">specify</span> <span class="pl-k">::</span> <span class="pl-k">CCBuilder</span> <span class="pl-k">ContingentClaim</span> (<span class="pl-k">Map</span> <span class="pl-k">Time</span> <span class="pl-k">Observables</span>) <span class="pl-k">CashFlow</span> <span class="pl-k">-&gt;</span> <span class="pl-k">ContingentClaim</span></pre></div>
+
+<p>Now let's make a function that checks an observable's value at a certain time. We'll call it monitor, and it'll
+check the 0th observable.</p>
+
+<div class="highlight highlight-haskell"><pre><span class="pl-en">monitor</span> <span class="pl-k">::</span> <span class="pl-k">Time</span> <span class="pl-k">-&gt;</span> <span class="pl-k">CCBuilder</span> <span class="pl-k">ContingentClaim</span> (<span class="pl-k">Map</span> <span class="pl-k">Observables</span> <span class="pl-c1">Double</span>) <span class="pl-c1">Double</span> 
+monitor t = <span class="pl-k">do</span> 
+  tell $ <span class="pl-c1">ContingentClaim</span> [<span class="pl-c1">CCProcessor</span> t <span class="pl-c1">[]</span>] <span class="pl-c">--adds to the list of Times</span>
+  m &lt;- ask  <span class="pl-c">--grabs the Map of values</span>
+  <span class="pl-c1">return</span> $ (m ! t) !! <span class="pl-c1">0</span> <span class="pl-c">--Yes, I know how ugly this is.</span></pre></div>
+
+<p>The details of the <code>Reader</code> and <code>Writer</code> monad are beyond the scope of this post, but suffice it to say that this
+adds to the running total of times to check the observable (tell), and while getting the value out of the map to
+use in the Reader monad.</p>
+
+<p>Now we have all we need to build simple, composable contingent claims. A few examples:</p>
+
+<div class="highlight highlight-haskell"><pre>
+binCall strike t payout = specify $ <span class="pl-k">do</span> 
+  x &lt;- monitor t 
+  <span class="pl-k">let</span> amt = <span class="pl-k">if</span> x &gt; strike <span class="pl-k">then</span> payout <span class="pl-k">else</span> <span class="pl-c1">0</span> 
+  <span class="pl-c1">return</span> (<span class="pl-c1">CashFlow</span> t amt)
+
+vanillaCall strike t = specify $ <span class="pl-k">do</span> 
+  x &lt;- monitor t 
+  <span class="pl-k">let</span> amt = <span class="pl-c1">max</span> (x - strike) <span class="pl-c1">0</span> 
+  <span class="pl-c1">return</span> (<span class="pl-c1">CashFlow</span> t amt)
+
+<span class="pl-c">--Calculates the average price on a series of times. </span>
+averagePrice priceTimes t = specify $ 
+  <span class="pl-k">do</span> x &lt;- <span class="pl-c1">mapM</span> monitor priceTimes 
+  <span class="pl-k">let</span> val = <span class="pl-c1">sum</span> x / <span class="pl-c1">fromIntegral</span> (<span class="pl-c1">length</span> x) 
+  <span class="pl-c1">return</span> $ <span class="pl-c1">CashFlow</span> t val
+
+<span class="pl-c">--We can even do insane things bizarre = specify $ do</span>
+  x &lt;- monitor <span class="pl-c1">0.5</span> 
+  y &lt;- monitor <span class="pl-c1">1.0</span> 
+  z &lt;- monitor <span class="pl-c1">2.0</span> 
+  <span class="pl-k">let</span> t = <span class="pl-k">if</span> <span class="pl-c1">sin</span> x &gt; <span class="pl-c1">0</span> <span class="pl-k">then</span> <span class="pl-c1">7.0</span> <span class="pl-k">else</span> <span class="pl-c1">2.0</span> <span class="pl-c">--why would we do this??? </span>
+  <span class="pl-c1">return</span> <span class="pl-c1">CashFlow</span> t (<span class="pl-c1">cos</span> (y + z))
+
+<span class="pl-c">--let's put a binary option together with a vanilla option! </span>
+portfolio = binCall <span class="pl-c1">100</span> <span class="pl-c1">1</span> <span class="pl-c1">50</span> &lt;&gt; vanillaCall <span class="pl-c1">100</span> <span class="pl-c1">1</span></pre></div>
+
+<p>Additionally the library contains some helpful functions like <code>multiplier</code>, which scales up a ContingentClaim
+payout by a constant factor. And of course I can make a function <code>short = multiplier (-1)</code>. So a call spread could look like this:</p>
+
+<div class="highlight highlight-haskell"><pre>callSpread lowStrike highStrike t = vanillaCall lowStrike t &lt;&gt; short (vanillaCall highStrike t)</pre></div>
+
+<p>Neat!</p>
+
+<h1>
+<a id="wrapping-up-a-loose-end---the-observables-type" class="anchor" href="#wrapping-up-a-loose-end---the-observables-type" aria-hidden="true"><span class="octicon octicon-link"></span></a>Wrapping Up a Loose End - The Observables Type</h1>
+
+<p>I mentioned earlier that the Observables type is a bit more sophisticated than I was letting on. The issue is that
+right now I can do this:</p>
+
+<div class="highlight highlight-haskell"><pre>unsafeMonitor t = <span class="pl-k">do</span> m &lt;- lift ask <span class="pl-c1">return</span> (m ! t !! <span class="pl-c1">3</span>)</pre></div>
+
+<p>But what if 3 is out of bounds? With that in mind, I created types that represent fixed length vectors. For instance:</p>
+
+<div class="highlight highlight-haskell"><pre><span class="pl-c">--I'm leaving out the UNPACK pragma and strictness annotations, </span>
+<span class="pl-c">--but you get the idea. </span>
+<span class="pl-k">data</span> <span class="pl-c1">Observables1</span> = <span class="pl-c1">Observables1</span> <span class="pl-c1">Double</span> 
+<span class="pl-k">data</span> <span class="pl-c1">Observables2</span> = <span class="pl-c1">Observables2</span> <span class="pl-c1">Double</span> <span class="pl-c1">Double</span> 
+<span class="pl-c">-- ...</span>
+
+<span class="pl-k">class</span> <span class="pl-e">Obs1</span> <span class="pl-smi">a</span> <span class="pl-k">where</span> obs1 :: a -&gt; <span class="pl-c1">Double</span>
+<span class="pl-k">class</span> <span class="pl-e">Obs2</span> <span class="pl-smi">a</span> <span class="pl-k">where</span> obs2 :: a -&gt; <span class="pl-c1">Double</span>
+<span class="pl-k">instance</span> <span class="pl-k">Obs1</span> <span class="pl-k">Observables1</span> <span class="pl-k">where</span> obs1 (<span class="pl-c1">Observables1</span> x) = x
+<span class="pl-k">instance</span> <span class="pl-k">Obs1</span> <span class="pl-k">Observables2</span> <span class="pl-k">where</span> obs1 (<span class="pl-c1">Observables2</span> x _) = x
+<span class="pl-k">instance</span> <span class="pl-k">Obs2</span> <span class="pl-k">Observables2</span> <span class="pl-k">where</span> obs2 (<span class="pl-c1">Observables2</span> _ x) = x
+<span class="pl-c">-- ...</span></pre></div>
+
+<p>Enough of that, you get the idea. Now a quick rewrite of the unsafeMonitor function:</p>
+
+<div class="highlight highlight-haskell"><pre>monitor t = <span class="pl-k">do</span>
+  tell $ <span class="pl-c1">ContingentClaim</span> [<span class="pl-c1">CCProcessor</span> t <span class="pl-c1">[]</span>]
+  m &lt;- ask 
+  <span class="pl-c1">return</span> (obs4 $ m ! t)</pre></div>
+
+<p>One last change:</p>
+
+<div class="highlight highlight-haskell"><pre><span class="pl-k">data</span> <span class="pl-c1">CCProcessor</span> a = <span class="pl-c1">CCProcessor</span>  {
+    <span class="pl-en">monitorTime</span>      <span class="pl-k">::</span> <span class="pl-k">Time</span>
+  , payoutFunc       :: [<span class="pl-c1">M</span>.<span class="pl-c1">Map</span> <span class="pl-c1">Time</span> a -&gt; <span class="pl-c1">CashFlow</span>]
+}
+
+<span class="pl-k">newtype</span> <span class="pl-c1">ContingentClaim</span> a = <span class="pl-c1">ContingentClaim</span> { unCC :: [<span class="pl-c1">CCProcessor</span> a] }
+
+<span class="pl-c">-- | Contingent claims with one observable.</span>
+<span class="pl-k">type</span> <span class="pl-c1">ContingentClaim1</span> = forall a . <span class="pl-c1">Obs1</span> a =&gt; <span class="pl-c1">ContingentClaim</span> a
+<span class="pl-c">-- | Contingent claims with two observables.</span>
+<span class="pl-k">type</span> <span class="pl-c1">ContingentClaim2</span> = forall a . <span class="pl-c1">Obs2</span> a =&gt; <span class="pl-c1">ContingentClaim</span> a
+<span class="pl-c">-- ...</span></pre></div>
+
+<p>And the type checker will now ensure that you're not accessing something that isn't being modeled. More on this
+when we get into the model implementation details.</p>
+
+<h1>
+<a id="conclusion" class="anchor" href="#conclusion" aria-hidden="true"><span class="octicon octicon-link"></span></a>Conclusion</h1>
+
+<p>You almost certainly haven't had as much fun reading this as I had writing the library. Haskell completely changes
+the way you solve problems, and while the abstractions are unfamiliar at first, they're remarkably powerful. It's
+still very much pre-pre-alpha but under heavy development.</p>
+
+<p>Next time we'll cover a little bit about how we put together the engine itself and implemented models.</p>
+      </section>
+
+    </div>
+    <!--[if !IE]><script>fixScale(document);</script><![endif]-->
+    
+  </body>
+</html>
