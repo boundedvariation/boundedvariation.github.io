@@ -95,11 +95,11 @@ containing all of the observables into a Map, keyed off of a Time? Then we can f
 
 <div class="highlight highlight-haskell"><pre><span class="pl-c1">Map</span> <span class="pl-c1">Time</span> <span class="pl-c1">Observables</span> -&gt; <span class="pl-c1">CashFlow</span></pre></div>
 
-<p>Where a <code>CashFlow</code> is just:</p>
+<p>Where a CashFlow is just:</p>
 
 <div class="highlight highlight-haskell"><pre><span class="pl-k">data</span> <span class="pl-c1">CashFlow</span> = <span class="pl-c1">CashFlow</span> { cfTime :: <span class="pl-c1">Time</span> , cfAmount :: <span class="pl-c1">Double</span> }</pre></div>
 
-<p>For now let's just imagine <code>Observables</code> is just a list of <code>Double</code>s. In practice we're doing something better than that (see the bottom of this post for some details), but let's keep it simple for now.</p>
+<p>For now let's just imagine Observables is just a list of Doubles. In practice we're doing something better than that (see the bottom of this post for some details), but let's keep it simple for now.</p>
 
 <p>After some iterations on the design, I came up with the following types to represent contingent claims.</p>
 
@@ -110,15 +110,13 @@ containing all of the observables into a Map, keyed off of a Time? Then we can f
 <span class="pl-k">newtype</span> <span class="pl-c1">ContingentClaim</span> = <span class="pl-c1">ContingentClaim</span> { unCC :: [<span class="pl-c1">CCProcessor</span>] }</pre></div>
 
 <p>If you can think about this from the standpoint of the Monte Carlo engine, the engine can tick through each element
-of the list. At each element it will evolve the simulation through until the given <code>Time</code> and put the <code>Observable</code>s
-into a running <code>Map</code>. Once this is done it will run any <code>payoutFunc</code> that is available (or maybe multiple ones)
-and determine the cash flows that need to be processed.</p>
+of the list. At each element it will evolve the simulation through until the given Time and put the Observables
+into a running Map. Once this is done it will run any payoutFunc that is available (or maybe multiple ones) and determine the cash flows that need to be processed.</p>
 
 <h1>
 <a id="monoid-to-the-rescue" class="anchor" href="#monoid-to-the-rescue" aria-hidden="true"><span class="octicon octicon-link"></span></a>Monoid to the Rescue</h1>
 
-<p>One nifty thing about this is that it's easy to put together a bunch of different contingent claims simply by
-interleaving them based on the Time field.</p>
+<p>One nifty thing about this is that it's easy to put together a bunch of different contingent claims simply by interleaving them based on the Time field.</p>
 
 <div class="highlight highlight-haskell"><pre><span class="pl-c">-- | Combines two contingent claims into one. </span>
 <span class="pl-en">combine</span> <span class="pl-k">::</span> <span class="pl-k">ContingentClaim</span> <span class="pl-smi">a</span> <span class="pl-k">-&gt;</span> <span class="pl-k">ContingentClaim</span> <span class="pl-smi">a</span> <span class="pl-k">-&gt;</span> <span class="pl-k">ContingentClaim</span> <span class="pl-smi">a</span>
@@ -159,14 +157,12 @@ checking the observable.</p>
 
 <div class="highlight highlight-haskell"><pre><span class="pl-k">type</span> <span class="pl-c1">CCBuilder</span> w r a = <span class="pl-c1">WriterT</span> w (<span class="pl-c1">Reader</span> r) a</pre></div>
 
-<p>We'll also need something to pull our completed <code>ContingentClaim</code> out of the monad. The details of the
-implementation are beyond the scope of this (and tedious anyway), so just make note of the type:</p>
+<p>We'll also need something to pull our completed ContingentClaim out of the monad. The details of the implementation are beyond the scope of this (and tedious anyway), so just make note of the type:</p>
 
 <div class="highlight highlight-haskell"><pre><span class="pl-en">specify</span> <span class="pl-k">::</span> <span class="pl-k">CCBuilder</span> <span class="pl-k">ContingentClaim</span> (<span class="pl-k">Map</span> <span class="pl-k">Time</span> <span class="pl-k">Observables</span>) <span class="pl-k">CashFlow</span> 
         -&gt; <span class="pl-c1">ContingentClaim</span></pre></div>
 
-<p>Now let's make a function that checks an observable's value at a certain time. We'll call it monitor, and it'll
-check the 0th observable.</p>
+<p>Now let's make a function that checks an observable's value at a certain time. We'll call it monitor, and it'll check the 0th observable.</p>
 
 <div class="highlight highlight-haskell"><pre><span class="pl-en">monitor</span> <span class="pl-k">::</span> <span class="pl-k">Time</span> <span class="pl-k">-&gt;</span> <span class="pl-k">CCBuilder</span> <span class="pl-k">ContingentClaim</span> (<span class="pl-k">Map</span> <span class="pl-k">Observables</span> <span class="pl-c1">Double</span>) <span class="pl-c1">Double</span> 
 monitor t = <span class="pl-k">do</span> 
@@ -174,9 +170,7 @@ monitor t = <span class="pl-k">do</span>
   m &lt;- ask  <span class="pl-c">--grabs the Map of values</span>
   <span class="pl-c1">return</span> $ (m ! t) !! <span class="pl-c1">0</span> <span class="pl-c">--Yes, I know how ugly this is.</span></pre></div>
 
-<p>The details of the <code>Reader</code> and <code>Writer</code> monad are beyond the scope of this post, but suffice it to say that this
-adds to the running total of times to check the observable (tell), and while getting the value out of the map to
-use in the Reader monad.</p>
+<p>The details of the Reader and Writer monad are beyond the scope of this post, but suffice it to say that this adds to the running total of times to check the observable (tell), and while getting the value out of the map to use in the Reader monad.</p>
 
 <p>Now we have all we need to build composable contingent claims. A few examples:</p>
 
@@ -208,7 +202,7 @@ bizarre = specify $ <span class="pl-k">do</span>
 <span class="pl-c">--let's put a binary option together with a vanilla option! </span>
 portfolio = binCall <span class="pl-c1">100</span> <span class="pl-c1">1</span> <span class="pl-c1">50</span> &lt;&gt; vanillaCall <span class="pl-c1">100</span> <span class="pl-c1">1</span></pre></div>
 
-<p>Additionally the library contains some helpful functions like <code>multiplier</code>, which scales up a ContingentClaim payout by a constant factor. And of course I can make a function <code>short = multiplier (-1)</code>. So a call spread could look like this:</p>
+<p>Additionally the library contains some helpful functions like multiplier, which scales up a ContingentClaim payout by a constant factor. And of course I can make a function <code>short = multiplier (-1)</code>. So a call spread could look like this:</p>
 
 <div class="highlight highlight-haskell"><pre>callSpread lowStrike highStrike t = vanillaCall lowStrike t &lt;&gt; short (vanillaCall highStrike t)</pre></div>
 
@@ -217,7 +211,7 @@ portfolio = binCall <span class="pl-c1">100</span> <span class="pl-c1">1</span> 
 <h1>
 <a id="wrapping-up-a-loose-end---the-observables-type" class="anchor" href="#wrapping-up-a-loose-end---the-observables-type" aria-hidden="true"><span class="octicon octicon-link"></span></a>Wrapping Up a Loose End - The Observables Type</h1>
 
-<p>I mentioned earlier that the <code>Observables</code> type is a bit more sophisticated than I was letting on. The issue is that
+<p>I mentioned earlier that the Observables type is a bit more sophisticated than I was letting on. The issue is that
 right now I can do this:</p>
 
 <div class="highlight highlight-haskell"><pre>unsafeMonitor t = <span class="pl-k">do</span> 
