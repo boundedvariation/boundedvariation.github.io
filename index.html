@@ -1,22 +1,41 @@
-<!DOCTYPE html>
-<html lang="en-us">
+<!doctype html>
+<html>
   <head>
-    <meta charset="UTF-8">
-    <title>Boundedvariation.GitHub.io by boundedvariation</title>
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <link rel="stylesheet" type="text/css" href="stylesheets/normalize.css" media="screen">
-    <link href='http://fonts.googleapis.com/css?family=Open+Sans:400,700' rel='stylesheet' type='text/css'>
-    <link rel="stylesheet" type="text/css" href="stylesheets/stylesheet.css" media="screen">
-    <link rel="stylesheet" type="text/css" href="stylesheets/github-light.css" media="screen">
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="chrome=1">
+    <title>Bounded Variation by boundedvariation</title>
+    <link rel="stylesheet" href="stylesheets/styles.css">
+    <link rel="stylesheet" href="stylesheets/github-dark.css">
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/1.7.1/jquery.min.js"></script>
+    <script src="javascripts/respond.js"></script>
+    <!--[if lt IE 9]>
+      <script src="//html5shiv.googlecode.com/svn/trunk/html5.js"></script>
+    <![endif]-->
+    <!--[if lt IE 8]>
+    <link rel="stylesheet" href="stylesheets/ie.css">
+    <![endif]-->
+    <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+
   </head>
   <body>
-    <section class="page-header">
-      <h1 class="project-name">Boundedvariation.GitHub.io</h1>
-      <h2 class="project-tagline">Building a Quant Finance Monte Carlo Engine in Haskell - Part 1</h2>
-    </section>
+      <div id="header">
+        <nav>
+          <li class="fork"><a href="https://github.com/boundedvariation">View On GitHub</a></li>
+        </nav>
+      </div><!-- end header -->
 
-    <section class="main-content">
-      <h1>
+    <div class="wrapper">
+
+      <section>
+        <div id="title">
+          <h1>Bounded Variation</h1>
+          <p>Building a Quant Finance Monte Carlo Engine in Haskell - Part 1</p>
+          <hr>
+          <span class="credits left">Project maintained by <a href="https://github.com/boundedvariation">boundedvariation</a></span>
+          <span class="credits right">Hosted on GitHub Pages &mdash; Theme by <a href="https://twitter.com/michigangraham">mattgraham</a></span>
+        </div>
+
+        <h1>
 <a id="introduction" class="anchor" href="#introduction" aria-hidden="true"><span class="octicon octicon-link"></span></a>Introduction</h1>
 
 <p>My background is in quant finance, mostly writing C++, Python, and (shudder) Matlab. Over the last few months I've
@@ -142,7 +161,8 @@ checking the observable.</p>
 <p>We'll also need something to pull out our completed ContingentClaim out of the monad. The details of the
 implementation are beyond the scope of this (and tedious anyway), so just make note of the type:</p>
 
-<div class="highlight highlight-haskell"><pre><span class="pl-en">specify</span> <span class="pl-k">::</span> <span class="pl-k">CCBuilder</span> <span class="pl-k">ContingentClaim</span> (<span class="pl-k">Map</span> <span class="pl-k">Time</span> <span class="pl-k">Observables</span>) <span class="pl-k">CashFlow</span> <span class="pl-k">-&gt;</span> <span class="pl-k">ContingentClaim</span></pre></div>
+<div class="highlight highlight-haskell"><pre><span class="pl-en">specify</span> <span class="pl-k">::</span> <span class="pl-k">CCBuilder</span> <span class="pl-k">ContingentClaim</span> (<span class="pl-k">Map</span> <span class="pl-k">Time</span> <span class="pl-k">Observables</span>) <span class="pl-k">CashFlow</span> 
+        -&gt; <span class="pl-c1">ContingentClaim</span></pre></div>
 
 <p>Now let's make a function that checks an observable's value at a certain time. We'll call it monitor, and it'll
 check the 0th observable.</p>
@@ -176,7 +196,8 @@ averagePrice priceTimes t = specify $
   <span class="pl-k">let</span> val = <span class="pl-c1">sum</span> x / <span class="pl-c1">fromIntegral</span> (<span class="pl-c1">length</span> x) 
   <span class="pl-c1">return</span> $ <span class="pl-c1">CashFlow</span> t val
 
-<span class="pl-c">--We can even do insane things bizarre = specify $ do</span>
+<span class="pl-c">--We can even do insane things </span>
+bizarre = specify $ <span class="pl-k">do</span>
   x &lt;- monitor <span class="pl-c1">0.5</span> 
   y &lt;- monitor <span class="pl-c1">1.0</span> 
   z &lt;- monitor <span class="pl-c1">2.0</span> 
@@ -209,8 +230,10 @@ right now I can do this:</p>
 <span class="pl-k">data</span> <span class="pl-c1">Observables2</span> = <span class="pl-c1">Observables2</span> <span class="pl-c1">Double</span> <span class="pl-c1">Double</span> 
 <span class="pl-c">-- ...</span>
 
-<span class="pl-k">class</span> <span class="pl-e">Obs1</span> <span class="pl-smi">a</span> <span class="pl-k">where</span> obs1 :: a -&gt; <span class="pl-c1">Double</span>
-<span class="pl-k">class</span> <span class="pl-e">Obs2</span> <span class="pl-smi">a</span> <span class="pl-k">where</span> obs2 :: a -&gt; <span class="pl-c1">Double</span>
+<span class="pl-k">class</span> <span class="pl-e">Obs1</span> <span class="pl-smi">a</span> <span class="pl-k">where</span> 
+  <span class="pl-en">obs1</span> <span class="pl-k">::</span> <span class="pl-smi">a</span> <span class="pl-k">-&gt;</span> <span class="pl-c1">Double</span>
+<span class="pl-k">class</span> <span class="pl-e">Obs2</span> <span class="pl-smi">a</span> <span class="pl-k">where</span> 
+  <span class="pl-en">obs2</span> <span class="pl-k">::</span> <span class="pl-smi">a</span> <span class="pl-k">-&gt;</span> <span class="pl-c1">Double</span>
 
 <span class="pl-k">instance</span> <span class="pl-k">Obs1</span> <span class="pl-k">Observables1</span> <span class="pl-k">where</span> 
   obs1 (<span class="pl-c1">Observables1</span> x) = x
@@ -236,6 +259,7 @@ right now I can do this:</p>
 
 <span class="pl-k">newtype</span> <span class="pl-c1">ContingentClaim</span> a = <span class="pl-c1">ContingentClaim</span> { unCC :: [<span class="pl-c1">CCProcessor</span> a] }
 
+<span class="pl-c">--we'll need RankNTypes</span>
 <span class="pl-c">-- | Contingent claims with one observable.</span>
 <span class="pl-k">type</span> <span class="pl-c1">ContingentClaim1</span> = forall a . <span class="pl-c1">Obs1</span> a =&gt; <span class="pl-c1">ContingentClaim</span> a
 <span class="pl-c">-- | Contingent claims with two observables.</span>
@@ -253,15 +277,10 @@ the way you solve problems, and while the abstractions are unfamiliar at first, 
 still very much pre-pre-alpha but under heavy development.</p>
 
 <p>Next time we'll cover a little bit about how we put together the engine itself and implemented models.</p>
+      </section>
 
-      <footer class="site-footer">
-
-        <span class="site-footer-credits">This page was generated by <a href="https://pages.github.com">GitHub Pages</a> using the <a href="https://github.com/jasonlong/cayman-theme">Cayman theme</a> by <a href="https://twitter.com/jasonlong">Jason Long</a>.</span>
-      </footer>
-
-    </section>
-
-  
+    </div>
+    <!--[if !IE]><script>fixScale(document);</script><![endif]-->
+    
   </body>
 </html>
-
