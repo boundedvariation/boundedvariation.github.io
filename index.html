@@ -197,7 +197,7 @@ bizarre = specify $ <span class="pl-k">do</span>
   y &lt;- monitor <span class="pl-c1">1.0</span> 
   z &lt;- monitor <span class="pl-c1">2.0</span> 
   <span class="pl-k">let</span> t = <span class="pl-k">if</span> <span class="pl-c1">sin</span> x &gt; <span class="pl-c1">0</span> <span class="pl-k">then</span> <span class="pl-c1">7.0</span> <span class="pl-k">else</span> <span class="pl-c1">2.0</span> <span class="pl-c">--why would we do this??? </span>
-  <span class="pl-c1">return</span> <span class="pl-c1">CashFlow</span> t (<span class="pl-c1">cos</span> (y + z))
+  <span class="pl-c1">return</span> $ <span class="pl-c1">CashFlow</span> t (<span class="pl-c1">cos</span> (y + z))
 
 <span class="pl-c">--let's put a binary option together with a vanilla option! </span>
 portfolio = binCall <span class="pl-c1">100</span> <span class="pl-c1">1</span> <span class="pl-c1">50</span> &lt;&gt; vanillaCall <span class="pl-c1">100</span> <span class="pl-c1">1</span></pre></div>
