@@ -68,7 +68,7 @@ model (Black-Scholes), assumes that its values grow at a fixed interest rate and
 </ol>
 
 <h1>
-<a id="the-contingentclaim-type" class="anchor" href="#the-contingentclaim-type" aria-hidden="true"><span class="octicon octicon-link"></span></a>The ContingentClaim Type</h1>
+<a id="the-contingentclaim-type" class="anchor" href="#the-contingentclaim-type" aria-hidden="true"><span class="octicon octicon-link"></span></a>The <code>ContingentClaim</code> Type</h1>
 
 <p>The first thing any Monte Carlo engine needs is a way to specify your payoffs. The great Simon Peyton-Jones
 himself has worked on <a href="http://research.microsoft.com/en-us/um/people/simonpj/Papers/financial-%0Acontracts/contracts-icfp.htm">this very problem</a>. His solution is, of course, quite good, but it's actually too general for our
@@ -81,24 +81,23 @@ Monte Carlo engine needs to know about it.  </p>
 <ol>
 <li> The MC engine needs to know what to look at. Is the option on Apple's stock or Microsoft's stock? Or maybe
 the ten-year treasury rate? For my purposes, I'll refer to the value being looked at as the "observable".</li>
-<li> The engine will need to know when to stop evolving and check the value of the observable.</li>
 <li> The engine will need to know how to combine the different observations to turn them into a cash flow.</li>
+<li> The engine will need to know when to stop evolving and check the value of the observable.</li>
 </ol>
 
-<p>The second of these is pretty easy to represent. For this one, we'll just create a list of times when the model
+<p>The third of these is pretty easy to represent. For this one, we'll just create a list of times when the model
 needs to stop and check an observable. Easy enough.</p>
 
-<p>Now for 1 and 3, let's make this a little simpler. What if every time we stop the model, we simply put a structure
+<p>Now for 1 and 2, let's make this a little simpler. What if every time we stop the model, we simply put a structure
 containing all of the observables into a Map, keyed off of a Time? Then we can finish specifying our contingent claim with a function with this type:</p>
 
 <div class="highlight highlight-haskell"><pre><span class="pl-c1">Map</span> <span class="pl-c1">Time</span> <span class="pl-c1">Observables</span> -&gt; <span class="pl-c1">CashFlow</span></pre></div>
 
-<p>Where a CashFlow is just:</p>
+<p>Where a <code>CashFlow</code> is just:</p>
 
 <div class="highlight highlight-haskell"><pre><span class="pl-k">data</span> <span class="pl-c1">CashFlow</span> = <span class="pl-c1">CashFlow</span> { cfTime :: <span class="pl-c1">Time</span> , cfAmount :: <span class="pl-c1">Double</span> }</pre></div>
 
-<p>For now let's just imagine <code>Observables</code> is just a list of <code>Double</code>s. In practice we're doing something better
-than that (see the bottom of this post for some details), but let's keep it simple for now.</p>
+<p>For now let's just imagine <code>Observables</code> is just a list of <code>Double</code>s. In practice we're doing something better than that (see the bottom of this post for some details), but let's keep it simple for now.</p>
 
 <p>After some iterations on the design, I came up with the following types to represent contingent claims.</p>
 
@@ -109,8 +108,8 @@ than that (see the bottom of this post for some details), but let's keep it simp
 <span class="pl-k">newtype</span> <span class="pl-c1">ContingentClaim</span> = <span class="pl-c1">ContingentClaim</span> { unCC :: [<span class="pl-c1">CCProcessor</span>] }</pre></div>
 
 <p>If you can think about this from the standpoint of the Monte Carlo engine, the engine can tick through each element
-of the list. At each element it will evolve the simultation through until the given Time and put the Observables
-into a running Map. Once this is done it will run any payoutFunc that is available (or maybe multiple ones)
+of the list. At each element it will evolve the simulation through until the given <code>Time</code> and put the <code>Observable</code>s
+into a running <code>Map</code>. Once this is done it will run any <code>payoutFunc</code> that is available (or maybe multiple ones)
 and determine the cash flows that need to be processed.</p>
 
 <h1>
@@ -158,7 +157,7 @@ checking the observable.</p>
 
 <div class="highlight highlight-haskell"><pre><span class="pl-k">type</span> <span class="pl-c1">CCBuilder</span> w r a = <span class="pl-c1">WriterT</span> w (<span class="pl-c1">Reader</span> r) a</pre></div>
 
-<p>We'll also need something to pull out our completed ContingentClaim out of the monad. The details of the
+<p>We'll also need something to pull our completed <code>ContingentClaim</code> out of the monad. The details of the
 implementation are beyond the scope of this (and tedious anyway), so just make note of the type:</p>
 
 <div class="highlight highlight-haskell"><pre><span class="pl-en">specify</span> <span class="pl-k">::</span> <span class="pl-k">CCBuilder</span> <span class="pl-k">ContingentClaim</span> (<span class="pl-k">Map</span> <span class="pl-k">Time</span> <span class="pl-k">Observables</span>) <span class="pl-k">CashFlow</span> 
@@ -177,7 +176,7 @@ monitor t = <span class="pl-k">do</span>
 adds to the running total of times to check the observable (tell), and while getting the value out of the map to
 use in the Reader monad.</p>
 
-<p>Now we have all we need to build simple, composable contingent claims. A few examples:</p>
+<p>Now we have all we need to build composable contingent claims. A few examples:</p>
 
 <div class="highlight highlight-haskell"><pre>
 binCall strike t payout = specify $ <span class="pl-k">do</span> 
@@ -207,20 +206,21 @@ bizarre = specify $ <span class="pl-k">do</span>
 <span class="pl-c">--let's put a binary option together with a vanilla option! </span>
 portfolio = binCall <span class="pl-c1">100</span> <span class="pl-c1">1</span> <span class="pl-c1">50</span> &lt;&gt; vanillaCall <span class="pl-c1">100</span> <span class="pl-c1">1</span></pre></div>
 
-<p>Additionally the library contains some helpful functions like <code>multiplier</code>, which scales up a ContingentClaim
-payout by a constant factor. And of course I can make a function <code>short = multiplier (-1)</code>. So a call spread could look like this:</p>
+<p>Additionally the library contains some helpful functions like <code>multiplier</code>, which scales up a ContingentClaim payout by a constant factor. And of course I can make a function <code>short = multiplier (-1)</code>. So a call spread could look like this:</p>
 
 <div class="highlight highlight-haskell"><pre>callSpread lowStrike highStrike t = vanillaCall lowStrike t &lt;&gt; short (vanillaCall highStrike t)</pre></div>
 
 <p>Neat!</p>
 
 <h1>
-<a id="wrapping-up-a-loose-end---the-observables-type" class="anchor" href="#wrapping-up-a-loose-end---the-observables-type" aria-hidden="true"><span class="octicon octicon-link"></span></a>Wrapping Up a Loose End - The Observables Type</h1>
+<a id="wrapping-up-a-loose-end---the-observables-type" class="anchor" href="#wrapping-up-a-loose-end---the-observables-type" aria-hidden="true"><span class="octicon octicon-link"></span></a>Wrapping Up a Loose End - The <code>Observables</code> Type</h1>
 
-<p>I mentioned earlier that the Observables type is a bit more sophisticated than I was letting on. The issue is that
+<p>I mentioned earlier that the <code>Observables</code> type is a bit more sophisticated than I was letting on. The issue is that
 right now I can do this:</p>
 
-<div class="highlight highlight-haskell"><pre>unsafeMonitor t = <span class="pl-k">do</span> m &lt;- lift ask <span class="pl-c1">return</span> (m ! t !! <span class="pl-c1">3</span>)</pre></div>
+<div class="highlight highlight-haskell"><pre>unsafeMonitor t = <span class="pl-k">do</span> 
+  m &lt;- ask 
+  <span class="pl-c1">return</span> (m ! t !! <span class="pl-c1">3</span>)</pre></div>
 
 <p>But what if 3 is out of bounds? With that in mind, I created types that represent fixed length vectors. For instance:</p>
 
@@ -260,9 +260,10 @@ right now I can do this:</p>
 <span class="pl-k">newtype</span> <span class="pl-c1">ContingentClaim</span> a = <span class="pl-c1">ContingentClaim</span> { unCC :: [<span class="pl-c1">CCProcessor</span> a] }
 
 <span class="pl-c">--we'll need RankNTypes</span>
-<span class="pl-c">-- | Contingent claims with one observable.</span>
+
+<span class="pl-c">--contingent claims with one observable.</span>
 <span class="pl-k">type</span> <span class="pl-c1">ContingentClaim1</span> = forall a . <span class="pl-c1">Obs1</span> a =&gt; <span class="pl-c1">ContingentClaim</span> a
-<span class="pl-c">-- | Contingent claims with two observables.</span>
+<span class="pl-c">--contingent claims with two observables.</span>
 <span class="pl-k">type</span> <span class="pl-c1">ContingentClaim2</span> = forall a . <span class="pl-c1">Obs2</span> a =&gt; <span class="pl-c1">ContingentClaim</span> a
 <span class="pl-c">-- ...</span></pre></div>
 
