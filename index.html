@@ -52,6 +52,8 @@ a few posts, but my rough plan is:</p>
 <li>Odds and ends (implementation of simple yield curves, volatility surfaces, etc) and future plans</li>
 </ul>
 
+<p>The target audience for this blog post is folks who know a bit of Haskell and are curious how it might apply to this particular problem.</p>
+
 <h1>
 <a id="quick-sidebar-quant-finance-basics" class="anchor" href="#quick-sidebar-quant-finance-basics" aria-hidden="true"><span class="octicon octicon-link"></span></a>Quick Sidebar: Quant Finance Basics</h1>
 
@@ -68,7 +70,7 @@ model (Black-Scholes), assumes that its values grow at a fixed interest rate and
 </ol>
 
 <h1>
-<a id="the-contingentclaim-type" class="anchor" href="#the-contingentclaim-type" aria-hidden="true"><span class="octicon octicon-link"></span></a>The <code>ContingentClaim</code> Type</h1>
+<a id="the-contingentclaim-type" class="anchor" href="#the-contingentclaim-type" aria-hidden="true"><span class="octicon octicon-link"></span></a>The ContingentClaim Type</h1>
 
 <p>The first thing any Monte Carlo engine needs is a way to specify your payoffs. The great Simon Peyton-Jones
 himself has worked on <a href="http://research.microsoft.com/en-us/um/people/simonpj/Papers/financial-%0Acontracts/contracts-icfp.htm">this very problem</a>. His solution is, of course, quite good, but it's actually too general for our
@@ -213,7 +215,7 @@ portfolio = binCall <span class="pl-c1">100</span> <span class="pl-c1">1</span> 
 <p>Neat!</p>
 
 <h1>
-<a id="wrapping-up-a-loose-end---the-observables-type" class="anchor" href="#wrapping-up-a-loose-end---the-observables-type" aria-hidden="true"><span class="octicon octicon-link"></span></a>Wrapping Up a Loose End - The <code>Observables</code> Type</h1>
+<a id="wrapping-up-a-loose-end---the-observables-type" class="anchor" href="#wrapping-up-a-loose-end---the-observables-type" aria-hidden="true"><span class="octicon octicon-link"></span></a>Wrapping Up a Loose End - The Observables Type</h1>
 
 <p>I mentioned earlier that the <code>Observables</code> type is a bit more sophisticated than I was letting on. The issue is that
 right now I can do this:</p>
